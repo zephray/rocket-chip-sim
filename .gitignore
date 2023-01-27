@@ -1,0 +1,8 @@
+sim/sim
+gen/
+obj/
+obj_dir/
+*.bin
+*.dump
+*.elf
+*.vcd
