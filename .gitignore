@@ -6,3 +6,6 @@ obj_dir/
 *.dump
 *.elf
 *.vcd
+*.d
+*.o
+*.map

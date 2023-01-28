@@ -6,7 +6,7 @@ DUMP = $(SRCS:.S=.dump)
 CROSS_COMPILE ?= riscv64-unknown-elf-
 GCC = $(CROSS_COMPILE)gcc
 #CFLAGS = -mabi=lp64 -march=rv64ima
-CFLAGS = -march=rv64imafd
+CFLAGS = -march=rv64imafdc
 OBJCOPY = $(CROSS_COMPILE)objcopy
 OBJDUMP = $(CROSS_COMPILE)objdump
 
