@@ -11,3 +11,7 @@ pushd example/c/dhrystone
 make clean
 make
 popd
+pushd example/c/coremark
+make clean
+make
+popd
