@@ -1,4 +1,9 @@
 #!/bin/bash
+if [ -z "$ROCKET_CHIP" ]
+then
+    echo "Please point ROCKET_CHIP environment variable to the root of rocket-chip"
+    exit
+fi
 set -x
 cwd=$(pwd)
 cp $cwd/config/CustomConfigs.scala $ROCKET_CHIP/src/main/scala/system/
