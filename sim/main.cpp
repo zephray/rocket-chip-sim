@@ -22,6 +22,7 @@ uint64_t tickcount;
 bool enable_trace = false;
 bool quiet = false;
 bool unlimited = true;
+uint64_t trace_from = 0;
 uint64_t max_cycles = 100;
 
 // Used by model
@@ -149,13 +150,13 @@ void tick() {
 
     // Let combinational changes propergate
     core->eval();
-    if (enable_trace)
+    if (enable_trace && (tickcount >= trace_from))
         trace->dump(tickcount * CLK_PREIOD_PS);
 
     // Clk negedge
     core->clk = 0;    
     core->eval();
-    if (enable_trace)
+    if (enable_trace && (tickcount >= trace_from))
         trace->dump(tickcount * CLK_PREIOD_PS + CLK_HALF_PERIOD_PS);
     
     tickcount++;
@@ -179,6 +180,7 @@ int main(int argc, char *argv[]) {
 
     // Initialize testbench
     Verilated::commandArgs(argc, argv);
+    Verilated::assertOn(false);
 
     core = new Vcore_wrapper;
     memmap = new Memmap();
@@ -208,6 +210,12 @@ int main(int argc, char *argv[]) {
             }
         }
         else if (strcmp(argv[i], "--trace") == 0) {
+            trace_from = 0;
+            enable_trace = true;
+        }
+        else if (strcmp(argv[i], "--trace_from") == 0) {
+            trace_from = atoll(argv[i + 1]);
+            printf("Trace would only start after %lu cycles.\n", trace_from);
             enable_trace = true;
         }
     }
