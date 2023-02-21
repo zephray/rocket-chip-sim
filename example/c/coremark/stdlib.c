@@ -9,22 +9,14 @@
 #include <stdint.h>
 #include <stddef.h>
 
-extern long time();
-extern long insn();
+void irq_handler(uint64_t cause, uint64_t status, uint64_t epc) {
+    // printf("EXCEPTION\nMCAUSE = %d", cause);
+    // printf("\nMSTATUS = %d", status);
+    // printf("\nMEPC = %d", epc);
+    while (1);
+}
 
-#ifdef USE_MYSTDLIB
-extern char *malloc();
-extern int printf(const char *format, ...);
-
-extern void *memcpy(void *dest, const void *src, long n);
-extern char *strcpy(char *dest, const char *src);
-extern int strcmp(const char *s1, const char *s2);
-
-char heap_memory[1024];
-int heap_memory_used = 0;
-#endif
-
-long time()
+uint64_t rdcycle()
 {
 	int cycles;
 	asm volatile ("rdcycle %0" : "=r"(cycles));
@@ -32,7 +24,7 @@ long time()
 	return cycles;
 }
 
-long insn()
+uint64_t rdinstret()
 {
 	int insns;
 	asm volatile ("rdinstret %0" : "=r"(insns));
@@ -40,206 +32,28 @@ long insn()
 	return insns;
 }
 
-#ifdef USE_MYSTDLIB
-char *malloc(int size)
+volatile uint32_t *UART_TXFIFO = (volatile uint32_t *)0x60000000;
+__attribute__((used)) int _write(int fd, char *buf, int size)
 {
-	char *p = heap_memory + heap_memory_used;
-	// printf("[malloc(%d) -> %d (%d..%d)]", size, (int)p, heap_memory_used, heap_memory_used + size);
-	heap_memory_used += size;
-	if (heap_memory_used > 1024)
-		asm volatile ("ebreak");
-	return p;
-}
+    int i;
 
-#define UART ((volatile uint32_t *)0x60000000)
-
-volatile uint32_t *uart_ptr = UART;
-
-static void printf_c(int c)
-{
-	*uart_ptr = (uint32_t)c;
-	return;
-}
-
-static void printf_s(char *p)
-{
-	while (*p)
-		printf_c(*(p++));
-}
-
-static void printf_d(int val)
-{
-	char buffer[32];
-	char *p = buffer;
-	if (val < 0) {
-		printf_c('-');
-		val = -val;
-	}
-	while (val || p == buffer) {
-		*(p++) = '0' + val % 10;
-		val = val / 10;
-	}
-	while (p != buffer)
-		printf_c(*(--p));
-}
-
-static void printf_u(unsigned int val)
-{
-	char buffer[32];
-	char *p = buffer;
-	while (val || p == buffer) {
-		*(p++) = '0' + val % 10;
-		val = val / 10;
-	}
-	while (p != buffer)
-		printf_c(*(--p));
-}
-
-static void printf_x(uint32_t v, int digits) {
-    for (int i = 7; i >= 0; i--) {
-        char c = "0123456789abcdef"[(v >> (4*i)) & 15];
-        if (c == '0' && i >= digits) continue;
-        printf_c(c);
-        digits = i;
+    for(i = 0; i < size; i++)
+    {
+		*UART_TXFIFO = (uint32_t)buf[i];
     }
+
+    return size;
 }
 
-int printf(const char *format, ...)
+__attribute__((used)) void *_sbrk(ptrdiff_t incr)
 {
-	int i;
-	va_list ap;
+    extern char _end[];
+    extern char _heap_end[];
+    static char *curbrk = _end;
 
-	va_start(ap, format);
+    if ((curbrk + incr < _end) || (curbrk + incr > _heap_end))
+    return NULL - 1;
 
-	for (i = 0; format[i]; i++)
-		if (format[i] == '%') {
-			while (format[++i]) {
-				if (format[i] == 'c') {
-					printf_c(va_arg(ap,int));
-					break;
-				}
-				if (format[i] == 's') {
-					printf_s(va_arg(ap,char*));
-					break;
-				}
-				if (format[i] == 'd') {
-					printf_d(va_arg(ap,int));
-					break;
-				}
-				if (format[i] == 'u') {
-					printf_u(va_arg(ap,int));
-					break;
-				}
-				if (format[i] == 'x') {
-					printf_x(va_arg(ap,int), 8);
-					break;
-				}
-			}
-		} else
-			printf_c(format[i]);
-
-	va_end(ap);
+    curbrk += incr;
+    return curbrk - incr;
 }
-
-void *memcpy(void *aa, const void *bb, long n)
-{
-	// printf("**MEMCPY**\n");
-	char *a = aa;
-	const char *b = bb;
-	while (n--) *(a++) = *(b++);
-	return aa;
-}
-
-char *strcpy(char* dst, const char* src)
-{
-	char *r = dst;
-
-	while ((((size_t)dst | (size_t)src) & 3) != 0)
-	{
-		char c = *(src++);
-		*(dst++) = c;
-		if (!c) return r;
-	}
-
-	while (1)
-	{
-		uint32_t v = *(uint32_t*)src;
-
-		if (__builtin_expect((((v) - 0x01010101UL) & ~(v) & 0x80808080UL), 0))
-		{
-			dst[0] = v & 0xff;
-			if ((v & 0xff) == 0)
-				return r;
-			v = v >> 8;
-
-			dst[1] = v & 0xff;
-			if ((v & 0xff) == 0)
-				return r;
-			v = v >> 8;
-
-			dst[2] = v & 0xff;
-			if ((v & 0xff) == 0)
-				return r;
-			v = v >> 8;
-
-			dst[3] = v & 0xff;
-			return r;
-		}
-
-		*(uint32_t*)dst = v;
-		src += 4;
-		dst += 4;
-	}
-}
-
-int strcmp(const char *s1, const char *s2)
-{
-	while ((((size_t)s1 | (size_t)s2) & 3) != 0)
-	{
-		char c1 = *(s1++);
-		char c2 = *(s2++);
-
-		if (c1 != c2)
-			return c1 < c2 ? -1 : +1;
-		else if (!c1)
-			return 0;
-	}
-
-	while (1)
-	{
-		uint32_t v1 = *(uint32_t*)s1;
-		uint32_t v2 = *(uint32_t*)s2;
-
-		if (__builtin_expect(v1 != v2, 0))
-		{
-			char c1, c2;
-
-			c1 = v1 & 0xff, c2 = v2 & 0xff;
-			if (c1 != c2) return c1 < c2 ? -1 : +1;
-			if (!c1) return 0;
-			v1 = v1 >> 8, v2 = v2 >> 8;
-
-			c1 = v1 & 0xff, c2 = v2 & 0xff;
-			if (c1 != c2) return c1 < c2 ? -1 : +1;
-			if (!c1) return 0;
-			v1 = v1 >> 8, v2 = v2 >> 8;
-
-			c1 = v1 & 0xff, c2 = v2 & 0xff;
-			if (c1 != c2) return c1 < c2 ? -1 : +1;
-			if (!c1) return 0;
-			v1 = v1 >> 8, v2 = v2 >> 8;
-
-			c1 = v1 & 0xff, c2 = v2 & 0xff;
-			if (c1 != c2) return c1 < c2 ? -1 : +1;
-			return 0;
-		}
-
-		if (__builtin_expect((((v1) - 0x01010101UL) & ~(v1) & 0x80808080UL), 0))
-			return 0;
-
-		s1 += 4;
-		s2 += 4;
-	}
-}
-#endif
-

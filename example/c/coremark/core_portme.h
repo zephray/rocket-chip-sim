@@ -63,9 +63,8 @@ Original Author: Shay Gal-on
         Define type of return from the timing functions.
  */
 #include <stddef.h>
-//#include <time.h>
-long insn();
-long time();
+extern unsigned long long rdcycle();
+extern unsigned long long rdinstret();
 typedef size_t CORE_TICKS;
 
 /* Definitions : COMPILER_VERSION, COMPILER_FLAGS, MEM_LOCATION

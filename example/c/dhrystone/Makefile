@@ -1,5 +1,5 @@
 OBJS = start.o dhry_1.o dhry_2.o stdlib.o
-CFLAGS = -MD -O3 -march=rv64imafdc -mcmodel=medany -DTIME -DRISCV -DUSE_MYSTDLIB -ffreestanding -nostdlib
+CFLAGS = -MD -O3 -march=rv64imafdc -mcmodel=medany -DTIME -DRISCV -fno-inline
 TOOLCHAIN_PREFIX = riscv64-unknown-elf-
 
 all: dhry.bin dhry.dump
@@ -11,7 +11,7 @@ dhry.dump: dhry.elf
 	$(TOOLCHAIN_PREFIX)objdump -d $< > $@
 
 dhry.elf: $(OBJS) sections.lds
-	$(TOOLCHAIN_PREFIX)gcc $(CFLAGS) -Wl,-Bstatic,-T,sections.lds,-Map,dhry.map,--strip-debug -o $@ $(OBJS) -lgcc
+	$(TOOLCHAIN_PREFIX)gcc $(CFLAGS) -Wl,-Bstatic,-T,sections.lds,-Map,dhry.map,--strip-debug -nostartfiles --specs=nano.specs --specs=nosys.specs -o $@ $(OBJS) -lgcc
 	size $@
 
 %.o: %.c

@@ -1,73 +1,166 @@
-/*
-This is free and unencumbered software released into the public domain.
+ENTRY( _start )
 
-Anyone is free to copy, modify, publish, use, compile, sell, or
-distribute this software, either in source code form or as a compiled
-binary, for any purpose, commercial or non-commercial, and by any
-means.
-*/
+__stack_size = 2048;
+
+PROVIDE( _stack_size = __stack_size );
+
 
 MEMORY
 {
-    FLASH (xr)  : ORIGIN = 0x80000000, LENGTH = 0x10000
-    RAM (xrw)   : ORIGIN = 0x80010000, LENGTH = 0x10000
+	FLASH (rx) : ORIGIN = 0x80000000, LENGTH = 128K
+	RAM (xrw) : ORIGIN = 0x80020000, LENGTH = 128K
 }
 
 
-SECTIONS {
-    /* The program code and other data goes into FLASH */
-    .text :
+SECTIONS
+{
+
+	.init :
+	{
+		_sinit = .;
+		. = ALIGN(4);
+		KEEP(*(SORT_NONE(.init)))
+		. = ALIGN(4);
+		_einit = .;
+	} >FLASH AT>FLASH
+
+  .vector :
+  {
+      *(.vector);
+	  . = ALIGN(64);
+  } >FLASH AT>FLASH
+
+	.text :
+	{
+		. = ALIGN(4);
+		*(.text)
+		*(.text.*)
+		*(.rodata)
+		*(.rodata*)
+		*(.glue_7)
+		*(.glue_7t)
+		*(.gnu.linkonce.t.*)
+		. = ALIGN(4);
+	} >FLASH AT>FLASH 
+
+	.fini :
+	{
+		KEEP(*(SORT_NONE(.fini)))
+		. = ALIGN(4);
+	} >FLASH AT>FLASH
+
+	PROVIDE( _etext = . );
+	PROVIDE( _eitcm = . );	
+
+	.preinit_array  :
+	{
+	  PROVIDE_HIDDEN (__preinit_array_start = .);
+	  KEEP (*(.preinit_array))
+	  PROVIDE_HIDDEN (__preinit_array_end = .);
+	} >FLASH AT>FLASH 
+	
+	.init_array     :
+	{
+	  PROVIDE_HIDDEN (__init_array_start = .);
+	  KEEP (*(SORT_BY_INIT_PRIORITY(.init_array.*) SORT_BY_INIT_PRIORITY(.ctors.*)))
+	  KEEP (*(.init_array EXCLUDE_FILE (*crtbegin.o *crtbegin?.o *crtend.o *crtend?.o ) .ctors))
+	  PROVIDE_HIDDEN (__init_array_end = .);
+	} >FLASH AT>FLASH 
+	
+	.fini_array     :
+	{
+	  PROVIDE_HIDDEN (__fini_array_start = .);
+	  KEEP (*(SORT_BY_INIT_PRIORITY(.fini_array.*) SORT_BY_INIT_PRIORITY(.dtors.*)))
+	  KEEP (*(.fini_array EXCLUDE_FILE (*crtbegin.o *crtbegin?.o *crtend.o *crtend?.o ) .dtors))
+	  PROVIDE_HIDDEN (__fini_array_end = .);
+	} >FLASH AT>FLASH 
+	
+	.ctors          :
+	{
+	  /* gcc uses crtbegin.o to find the start of
+	     the constructors, so we make sure it is
+	     first.  Because this is a wildcard, it
+	     doesn't matter if the user does not
+	     actually link against crtbegin.o; the
+	     linker won't look for a file to match a
+	     wildcard.  The wildcard also means that it
+	     doesn't matter which directory crtbegin.o
+	     is in.  */
+	  KEEP (*crtbegin.o(.ctors))
+	  KEEP (*crtbegin?.o(.ctors))
+	  /* We don't want to include the .ctor section from
+	     the crtend.o file until after the sorted ctors.
+	     The .ctor section from the crtend file contains the
+	     end of ctors marker and it must be last */
+	  KEEP (*(EXCLUDE_FILE (*crtend.o *crtend?.o ) .ctors))
+	  KEEP (*(SORT(.ctors.*)))
+	  KEEP (*(.ctors))
+	} >FLASH AT>FLASH 
+	
+	.dtors          :
+	{
+	  KEEP (*crtbegin.o(.dtors))
+	  KEEP (*crtbegin?.o(.dtors))
+	  KEEP (*(EXCLUDE_FILE (*crtend.o *crtend?.o ) .dtors))
+	  KEEP (*(SORT(.dtors.*)))
+	  KEEP (*(.dtors))
+	} >FLASH AT>FLASH 
+
+	.dalign :
+	{
+		. = ALIGN(4);
+		PROVIDE(_data_vma = .);
+	} >RAM AT>FLASH	
+
+	.dlalign :
+	{
+		. = ALIGN(4); 
+		PROVIDE(_data_lma = .);
+	} >FLASH AT>FLASH
+
+	.data :
+	{
+    	*(.gnu.linkonce.r.*)
+    	*(.data .data.*)
+    	*(.gnu.linkonce.d.*)
+		. = ALIGN(8);
+    	PROVIDE( __global_pointer$ = . + 0x800 );
+    	*(.sdata .sdata.*)
+		*(.sdata2.*)
+    	*(.gnu.linkonce.s.*)
+    	. = ALIGN(8);
+    	*(.srodata.cst16)
+    	*(.srodata.cst8)
+    	*(.srodata.cst4)
+    	*(.srodata.cst2)
+    	*(.srodata .srodata.*)
+    	. = ALIGN(4);
+		PROVIDE( _edata = .);
+	} >RAM AT>FLASH
+
+	.bss :
+	{
+		. = ALIGN(4);
+		PROVIDE( _sbss = .);
+  	    *(.sbss*)
+        *(.gnu.linkonce.sb.*)
+		*(.bss*)
+     	*(.gnu.linkonce.b.*)		
+		*(COMMON*)
+		. = ALIGN(4);
+		PROVIDE( _ebss = .);
+	} >RAM AT>FLASH
+
+	PROVIDE( _end = _ebss);
+	PROVIDE( end = . );
+
+    .stack ORIGIN(RAM) + LENGTH(RAM) - __stack_size :
     {
+        PROVIDE( _heap_end = . );    
         . = ALIGN(4);
-        *(.text)           /* .text sections (code) */
-        *(.text*)          /* .text* sections (code) */
-        *(.rodata)         /* .rodata sections (constants, strings, etc.) */
-        *(.rodata*)        /* .rodata* sections (constants, strings, etc.) */
-        *(.srodata)        /* .rodata sections (constants, strings, etc.) */
-        *(.srodata*)       /* .rodata* sections (constants, strings, etc.) */
-        . = ALIGN(4);
-        _etext = .;        /* define a global symbol at end of code */
-        _sidata = _etext;  /* This is used by the startup in order to initialize the .data secion */
-    } >FLASH
+        PROVIDE(_susrstack = . );
+        . = . + __stack_size;
+        PROVIDE( _eusrstack = .);
+    } >RAM 
 
-
-    /* This is the initialized data section
-    The program executes knowing that the data is in the RAM
-    but the loader puts the initial values in the FLASH (inidata).
-    It is one task of the startup to copy the initial values from FLASH to RAM. */
-    .data : AT ( _sidata )
-    {
-        . = ALIGN(4);
-        _sdata = .;        /* create a global symbol at data start; used by startup code in order to initialise the .data section in RAM */
-        _ram_start = .;    /* create a global symbol at ram start for garbage collector */
-        . = ALIGN(4);
-        *(.data)           /* .data sections */
-        *(.data*)          /* .data* sections */
-        *(.sdata)           /* .sdata sections */
-        *(.sdata*)          /* .sdata* sections */
-        . = ALIGN(4);
-        _edata = .;        /* define a global symbol at data end; used by startup code in order to initialise the .data section in RAM */
-    } >RAM
-
-    /* Uninitialized data section */
-    .bss :
-    {
-        . = ALIGN(4);
-        _sbss = .;         /* define a global symbol at bss start; used by startup code */
-        *(.bss)
-        *(.bss*)
-        *(.sbss)
-        *(.sbss*)
-        *(COMMON)
-
-        . = ALIGN(4);
-        _ebss = .;         /* define a global symbol at bss end; used by startup code */
-    } >RAM
-
-    /* this is to define the start of the heap, and make sure we have a minimum size */
-    .heap :
-    {
-        . = ALIGN(4);
-        _heap_start = .;    /* define a global symbol at heap start */
-    } >RAM
 }

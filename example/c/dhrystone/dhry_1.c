@@ -17,12 +17,11 @@
 
 #include "dhry.h"
 
-#ifdef USE_MYSTDLIB
-extern char     *malloc ();
-#else
-#  include <stdlib.h>
-#  include <string.h>
-#endif
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+extern uint64_t rdcycle();
+extern uint64_t rdinstret();
 
 /* Global Variables: */
 
@@ -58,9 +57,6 @@ extern  int     times ();
 #endif
 #ifdef TIME
 extern long     time();
-#ifdef RISCV
-extern long     insn();
-#endif
                 /* see library function "time"  */
 #define Too_Small_Time 2
                 /* Measurements should last at least 2 seconds */
@@ -147,9 +143,9 @@ main ()
   Begin_Time = (long) time_info.tms_utime;
 #endif
 #ifdef TIME
-  Begin_Time = time ( (long *) 0);
+  Begin_Time = (long) rdcycle();
 #ifdef RISCV
-  Begin_Insn = insn ( (long *) 0);
+  Begin_Insn = (long) rdinstret();
 #endif
 #endif
 
@@ -208,9 +204,9 @@ main ()
   End_Time = (long) time_info.tms_utime;
 #endif
 #ifdef TIME
-  End_Time = time ( (long *) 0);
+  End_Time = (long) rdcycle();
 #ifdef RISCV
-  End_Insn = insn ( (long *) 0);
+  End_Insn = (long) rdinstret();
 #endif
 #endif
 

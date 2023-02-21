@@ -53,7 +53,7 @@ volatile ee_s32 seed5_volatile = 0;
         */
 #define NSECS_PER_SEC              1000000 // Assuming clock speed is 1MHz
 #define CORETIMETYPE               long
-#define GETMYTIME(_t)              (*_t = time())
+#define GETMYTIME(_t)              (*_t = rdcycle())
 #define MYTIMEDIFF(fin, ini)       ((fin) - (ini))
 #define TIMER_RES_DIVIDER          1
 #define SAMPLE_TIME_IMPLEMENTATION 1
@@ -74,7 +74,7 @@ uint64_t start_instret;
 void
 start_time(void)
 {
-    start_instret = insn();
+    start_instret = rdinstret();
     GETMYTIME(&start_time_val);
 }
 /* Function : stop_time
@@ -90,7 +90,7 @@ void
 stop_time(void)
 {
     GETMYTIME(&stop_time_val);
-    stop_instret = insn();
+    stop_instret = rdinstret();
 }
 /* Function : get_time
         Return an abstract "ticks" number that signifies time on the system.
@@ -133,6 +133,8 @@ void
 portable_init(core_portable *p, int *argc, char *argv[])
 {
     ee_printf("Coremark\n");
+    while (rdcycle() < 4096);
+    ee_printf("Start\n");
 
     (void)argc; // prevent unused warning
     (void)argv; // prevent unused warning

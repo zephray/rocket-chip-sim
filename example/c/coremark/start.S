@@ -1,10 +1,20 @@
 .section .text
+.global	_start
+_start:
+j boot
+nop
+nop
+nop
 
-start:
+irq:
+csrr a0, mcause
+csrr a1, mstatus
+csrr a2, mepc
+j irq_handler
 
+boot:
 # zero-initialize register file
 addi x1, zero, 0
-li x2, 0x800fff00
 addi x3, zero, 0
 addi x4, zero, 0
 addi x5, zero, 0
@@ -35,31 +45,45 @@ addi x29, zero, 0
 addi x30, zero, 0
 addi x31, zero, 0
 
+.option push 
+.option	norelax
+la gp, __global_pointer$
+.option	pop
+
+la sp, _eusrstack 
+
+# setup irq
+la a0, irq
+csrw mtvec, a0
+
+# set FP dirty bit to allow use FP instructions
+lui a0, 0x1e
+csrs mstatus, a0
+
 # copy data section
-la a0, _sidata
-la a1, _sdata
+la a0, _data_lma
+la a1, _data_vma
 la a2, _edata
-bge a1, a2, end_init_data
+bgeu a1, a2, end_init_data
 loop_init_data:
-lw a3, 0(a0)
-sw a3, 0(a1)
+lw t0, (a0)
+sw t0, (a1)
 addi a0, a0, 4
 addi a1, a1, 4
-blt a1, a2, loop_init_data
+bltu a1, a2, loop_init_data
 end_init_data:
 
 # zero-init bss section
 la a0, _sbss
 la a1, _ebss
-bge a0, a1, end_init_bss
+bgeu a0, a1, end_init_bss
 loop_init_bss:
-sw zero, 0(a0)
-addi a0, a0, 4
-blt a0, a1, loop_init_bss
+sd zero, 0(a0)
+addi a0, a0, 8
+bltu a0, a1, loop_init_bss
 end_init_bss:
 
 # call main
 call main
-ebreak
 loop:
 j loop
