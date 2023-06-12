@@ -3,7 +3,7 @@
 
 package freechips.rocketchip.system
 
-import freechips.rocketchip.config.Config
+import org.chipsalliance.cde.config._
 import freechips.rocketchip.subsystem._
 
 import freechips.rocketchip.devices.tilelink.{BootROMLocated}
